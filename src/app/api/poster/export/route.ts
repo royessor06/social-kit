@@ -1,0 +1,126 @@
+import { NextRequest } from 'next/server'
+import chromium from '@sparticuz/chromium'
+import { chromium as playwrightCoreChromium } from 'playwright-core'
+import { auth } from '@/auth'
+import { prisma } from '@/lib/prisma'
+import { InvalidPosterDataError, renderPosterHtml } from '@/lib/template'
+
+export const maxDuration = 60
+
+export async function POST(request: NextRequest) {
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return Response.json({ error: 'Corps JSON invalide' }, { status: 400 })
+  }
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+    return Response.json({ error: 'Requête invalide' }, { status: 400 })
+  }
+  const { templateId, creationId, format = 'png' } = body as {
+    templateId?: unknown
+    creationId?: unknown
+    format?: unknown
+  }
+
+  if (
+    typeof templateId !== 'string' ||
+    typeof creationId !== 'string' ||
+    !templateId ||
+    !creationId ||
+    (format !== 'png' && format !== 'pdf')
+  ) {
+    return Response.json(
+      { error: 'templateId, creationId ou format invalide' },
+      { status: 400 }
+    )
+  }
+
+  const creation = await prisma.posterCreation.findUnique({
+    where: { id: creationId },
+  })
+  if (
+    !creation ||
+    !creation.paid ||
+    creation.paymentStatus !== 'PAID' ||
+    creation.templateId !== templateId
+  ) {
+    return Response.json({ error: 'Paiement requis' }, { status: 403 })
+  }
+  if (creation.userId) {
+    const session = await auth()
+    if (session?.user?.id !== creation.userId) {
+      return Response.json({ error: 'Accès interdit' }, { status: 403 })
+    }
+  }
+
+  const template = await prisma.posterTemplate.findUnique({
+    where: { id: templateId },
+  })
+  if (!template) {
+    return Response.json({ error: 'Template introuvable' }, { status: 404 })
+  }
+
+  let html: string
+  try {
+    html = await renderPosterHtml(
+      template.htmlContent,
+      creation.data,
+      template.variables
+    )
+  } catch (error) {
+    if (error instanceof InvalidPosterDataError) {
+      return Response.json({ error: error.message }, { status: 400 })
+    }
+    throw error
+  }
+
+  const browser =
+    process.env.NODE_ENV === 'production'
+      ? await playwrightCoreChromium.launch({
+          args: chromium.args,
+          executablePath: await chromium.executablePath(),
+          headless: true,
+        })
+      : await (await import('playwright')).chromium.launch()
+  let buffer: Buffer
+  try {
+    const page = await browser.newPage({
+      viewport: { width: 1080, height: 1080 },
+    })
+    await page.route('**/*', (route) => route.abort())
+    await page.setContent(html, { waitUntil: 'networkidle' })
+
+    if (format === 'pdf') {
+      buffer = await page.pdf({
+        width: '1080px',
+        height: '1080px',
+        printBackground: true,
+      })
+    } else {
+      const screenshot = await page.screenshot({
+        type: 'png',
+        fullPage: false,
+        clip: { x: 0, y: 0, width: 1080, height: 1080 },
+      })
+      buffer = Buffer.from(screenshot)
+    }
+  } finally {
+    await browser.close()
+  }
+
+  await prisma.posterCreation.update({
+    where: { id: creationId },
+    data: { exportedAt: new Date(), format },
+  })
+
+  return new Response(new Uint8Array(buffer), {
+    headers: {
+      'Content-Type': format === 'pdf' ? 'application/pdf' : 'image/png',
+      'Content-Disposition':
+        format === 'pdf'
+          ? 'attachment; filename="affiche.pdf"'
+          : 'attachment; filename="affiche.png"',
+    },
+  })
+}

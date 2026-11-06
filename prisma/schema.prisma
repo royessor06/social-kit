@@ -1,10 +1,66 @@
 generator client {
   provider = "prisma-client-js"
+  engineType = "binary"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String
+  role          String    @default("USER")
+  suspended     Boolean   @default(false)
+  plan          String    @default("FREE")
+  createdAt     DateTime  @default(now())
+
+  accounts       Account[]
+  sessions       Session[]
+  posterCreations PosterCreation[]
+  clientSites     ClientSite[]
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
 }
 
 model PosterTemplate {
@@ -14,27 +70,51 @@ model PosterTemplate {
   htmlContent String   @db.Text
   thumbnail   String?
   active      Boolean  @default(true)
+  variables   Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  creations   PosterCreation[]
+  creations PosterCreation[]
 
   @@index([category])
   @@index([active])
 }
 
 model PosterCreation {
-  id          String   @id @default(cuid())
-  templateId  String
-  data        Json
-  paid        Boolean  @default(false)
-  exportedAt  DateTime?
-  createdAt   DateTime @default(now())
+  id            String    @id @default(cuid())
+  templateId    String
+  data          Json
+  paid          Boolean   @default(false)
+  paymentStatus String    @default("PENDING")
+  transactionId String?
+  paymentMethod String?
+  format        String    @default("png")
+  exportedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  userId        String?
 
-  template    PosterTemplate @relation(fields: [templateId], references: [id])
+  template PosterTemplate @relation(fields: [templateId], references: [id])
+  user     User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([templateId])
   @@index([paid])
+  @@index([userId])
+}
+
+model SiteTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  category    String
+  htmlContent String   @db.Text
+  variables   Json
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sites ClientSite[]
+
+  @@index([category])
+  @@index([active])
 }
 
 model ClientSite {
@@ -44,8 +124,14 @@ model ClientSite {
   templateId   String
   data         Json
   published    Boolean  @default(false)
+  suspended    Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  userId       String?
+
+  template SiteTemplate @relation(fields: [templateId], references: [id])
+  user     User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([published])
+  @@index([userId])
 }

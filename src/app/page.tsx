@@ -13,8 +13,19 @@ export default function Home() {
           <nav className="hidden gap-8 text-sm text-slate-400 sm:flex">
             <span className="cursor-default text-white">Accueil</span>
             <span className="cursor-default hover:text-white">Modèles</span>
-            <span className="cursor-default hover:text-white">Tarifs</span>
+            <Link href="/tarifs" className="hover:text-white">Tarifs</Link>
           </nav>
+          <div className="flex items-center gap-3 text-sm">
+            <Link href="/login" className="text-slate-300 hover:text-white">
+              Connexion
+            </Link>
+            <Link
+              href="/register"
+              className="rounded-lg bg-emerald-500 px-3 py-2 font-semibold text-slate-950 hover:bg-emerald-400"
+            >
+              Créer un compte
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -35,14 +46,17 @@ export default function Home() {
         </p>
         <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Link
-            href="/poster"
+            href="/templates"
             className="rounded-xl bg-emerald-500 px-8 py-4 text-base font-semibold text-slate-950 transition hover:bg-emerald-400"
           >
             Créer une affiche
           </Link>
-          <span className="rounded-xl border border-slate-700 px-8 py-4 text-base font-medium text-slate-400">
-            Sites vitrines — bientôt
-          </span>
+          <Link
+            href="/site/nouveau"
+            className="rounded-xl border border-slate-700 px-8 py-4 text-base font-medium text-slate-300 transition hover:border-emerald-500 hover:text-white"
+          >
+            Créer un site vitrine
+          </Link>
         </div>
       </section>
 

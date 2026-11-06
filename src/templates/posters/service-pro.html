@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; }
+    .poster {
+      width: 1080px; height: 1080px;
+      background: #ffffff; color: #0f172a;
+      display: flex; flex-direction: column;
+      padding: 90px; position: relative; overflow: hidden;
+    }
+    .top-bar {
+      position: absolute; top: 0; left: 0; right: 0; height: 16px;
+      background: linear-gradient(90deg, #2563eb, #7c3aed);
+    }
+    .header { display: flex; align-items: center; gap: 24px; margin-bottom: 60px; }
+    .logo-placeholder {
+      width: 90px; height: 90px; border-radius: 20px;
+      background: #2563eb; color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 36px; font-weight: 800;
+    }
+    .business-name { font-size: 52px; font-weight: 800; line-height: 1.1; }
+    .slogan { font-size: 24px; color: #64748b; margin-top: 8px; }
+    .section-title {
+      font-size: 20px; font-weight: 700; color: #2563eb;
+      text-transform: uppercase; letter-spacing: 3px; margin-bottom: 24px;
+    }
+    .services { flex: 1; display: flex; flex-direction: column; gap: 20px; }
+    .service-item {
+      display: flex; align-items: center; gap: 20px;
+      padding: 24px; background: #f1f5f9; border-radius: 16px;
+    }
+    .service-number {
+      width: 48px; height: 48px; border-radius: 12px;
+      background: #2563eb; color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; font-weight: 800; flex-shrink: 0;
+    }
+    .service-text { font-size: 28px; font-weight: 600; }
+    .footer {
+      margin-top: 40px; padding-top: 32px; border-top: 2px solid #e2e8f0;
+      display: flex; justify-content: space-between; font-size: 22px; color: #475569;
+    }
+    .footer strong { color: #0f172a; }
+  </style>
+</head>
+<body>
+  <div class="poster">
+    <div class="top-bar"></div>
+    <div class="header">
+      <div class="logo-placeholder">{{initiales}}</div>
+      <div>
+        <div class="business-name">{{nom_entreprise}}</div>
+        <div class="slogan">{{slogan}}</div>
+      </div>
+    </div>
+    <div class="services">
+      <div class="section-title">{{titre_section}}</div>
+      <div class="service-item"><div class="service-number">1</div><div class="service-text">{{service_1}}</div></div>
+      <div class="service-item"><div class="service-number">2</div><div class="service-text">{{service_2}}</div></div>
+      <div class="service-item"><div class="service-number">3</div><div class="service-text">{{service_3}}</div></div>
+      <div class="service-item"><div class="service-number">4</div><div class="service-text">{{service_4}}</div></div>
+    </div>
+    <div class="footer">
+      <div><strong>{{telephone}}</strong></div>
+      <div>{{adresse}}</div>
+    </div>
+  </div>
+</body>
+</html>

@@ -4,6 +4,18 @@ const nextConfig: NextConfig = {
   /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
+  serverExternalPackages: ["@sparticuz/chromium"],
+  outputFileTracingIncludes: {
+    "/api/poster/export": ["./node_modules/@sparticuz/chromium/bin/**"],
+  },
+  async headers() {
+    return [
+      {
+        source: "/uploads/:path*",
+        headers: [{ key: "X-Content-Type-Options", value: "nosniff" }],
+      },
+    ];
+  },
   turbopack: {
     rules: {
       "*.css": {

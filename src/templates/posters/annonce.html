@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; }
+    .poster {
+      width: 1080px; height: 1080px;
+      background: #fef3c7; color: #78350f;
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: 100px; position: relative; overflow: hidden;
+    }
+    .stripe {
+      position: absolute; top: 0; left: 0; right: 0; height: 24px;
+      background: repeating-linear-gradient(
+        90deg, #f59e0b 0, #f59e0b 40px, #78350f 40px, #78350f 80px
+      );
+    }
+    .header { position: relative; z-index: 1; }
+    .kicker {
+      font-size: 24px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 4px; color: #b45309;
+    }
+    .title {
+      font-size: 120px; font-weight: 900; line-height: 0.95;
+      margin-top: 24px; letter-spacing: -3px;
+    }
+    .subtitle { font-size: 36px; margin-top: 32px; max-width: 800px; line-height: 1.4; }
+    .body { position: relative; z-index: 1; }
+    .info-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+    }
+    .info-card {
+      background: #fff; border-radius: 20px; padding: 32px;
+      border: 2px solid #fcd34d;
+    }
+    .info-card .label {
+      font-size: 16px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 2px; color: #b45309; margin-bottom: 12px;
+    }
+    .info-card .value { font-size: 30px; font-weight: 800; }
+    .footer {
+      position: relative; z-index: 1;
+      display: flex; justify-content: space-between; font-size: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div class="poster">
+    <div class="stripe"></div>
+    <div class="header">
+      <div class="kicker">{{kicker}}</div>
+      <h1 class="title">{{titre}}</h1>
+      <p class="subtitle">{{message}}</p>
+    </div>
+    <div class="body">
+      <div class="info-grid">
+        <div class="info-card">
+          <div class="label">Ouverture</div>
+          <div class="value">{{date_ouverture}}</div>
+        </div>
+        <div class="info-card">
+          <div class="label">Adresse</div>
+          <div class="value">{{adresse}}</div>
+        </div>
+        <div class="info-card">
+          <div class="label">Téléphone</div>
+          <div class="value">{{telephone}}</div>
+        </div>
+        <div class="info-card">
+          <div class="label">WhatsApp</div>
+          <div class="value">{{whatsapp}}</div>
+        </div>
+      </div>
+    </div>
+    <div class="footer">
+      <div>{{nom_entreprise}}</div>
+      <div>{{slogan}}</div>
+    </div>
+  </div>
+</body>
+</html>
