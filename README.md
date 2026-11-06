@@ -75,6 +75,16 @@ et passez son champ `role` à `ADMIN`. Le compte peut ensuite ouvrir
 modèles. Un administrateur ne peut pas suspendre son propre compte ni le
 dernier administrateur actif.
 
+## Réinitialisation du mot de passe
+
+Configurez `NEXT_PUBLIC_APP_URL` avec l’URL de l’application. Pour envoyer les
+liens par e-mail, ajoutez `RESEND_API_KEY` et `RESEND_FROM_EMAIL`. Sans clé
+Resend, le lien est écrit dans la console uniquement hors production; en
+production, aucun lien n’est exposé et la réponse reste générique. Les liens
+expirent après 30 minutes et ne peuvent être utilisés qu’une fois.
+
+Après ajout d’un modèle d’affiche, exécutez `npm run db:seed` pour le charger.
+
 ## Paiements CinetPay
 
 Configurez `CINETPAY_API_KEY`, `CINETPAY_SITE_ID` et `CINETPAY_SECRET_KEY`

@@ -110,6 +110,24 @@ const TEMPLATES: TemplateDef[] = [
       { key: 'slogan', label: 'Slogan', type: 'text', default: 'Qualité et service' },
     ],
   },
+  {
+    id: 'immobilier',
+    name: 'Bien Immobilier',
+    category: 'Immobilier',
+    file: 'immobilier.html',
+    variables: [
+      { key: 'type_bien', label: 'Type de bien', type: 'text', default: 'À VENDRE' },
+      { key: 'titre', label: 'Titre de l’annonce', type: 'text', default: 'Villa contemporaine' },
+      { key: 'description', label: 'Description', type: 'textarea', default: 'Un espace lumineux et confortable, idéal pour votre famille.' },
+      { key: 'prix', label: 'Prix', type: 'text', default: '85 000 000' },
+      { key: 'devise', label: 'Devise', type: 'text', default: 'FCFA' },
+      { key: 'localisation', label: 'Localisation', type: 'text', default: 'Cotonou, Bénin' },
+      { key: 'surface', label: 'Surface', type: 'text', default: '180 m²' },
+      { key: 'details', label: 'Détails du bien', type: 'text', default: '4 chambres · 3 salles de bain' },
+      { key: 'nom_agence', label: 'Agence ou propriétaire', type: 'text', default: 'Votre agence immobilière' },
+      { key: 'telephone', label: 'Téléphone', type: 'text', default: '+229 97 00 00 00' },
+    ],
+  },
 ]
 
 async function main() {

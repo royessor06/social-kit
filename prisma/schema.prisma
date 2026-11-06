@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
   engineType = "binary"
 }
 
@@ -20,10 +20,11 @@ model User {
   plan          String    @default("FREE")
   createdAt     DateTime  @default(now())
 
-  accounts       Account[]
-  sessions       Session[]
-  posterCreations PosterCreation[]
-  clientSites     ClientSite[]
+  accounts            Account[]
+  sessions            Session[]
+  passwordResetTokens PasswordResetToken[]
+  posterCreations     PosterCreation[]
+  clientSites         ClientSite[]
 }
 
 model Account {
@@ -61,6 +62,19 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model PosterTemplate {

@@ -50,6 +50,14 @@ export function LoginForm() {
           className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-white focus:border-emerald-500 focus:outline-none"
         />
       </label>
+      <div className="-mt-2 text-right">
+        <Link
+          href="/mot-de-passe-oublie"
+          className="text-sm text-emerald-400 hover:text-emerald-300"
+        >
+          Mot de passe oublié ?
+        </Link>
+      </div>
       {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
       <button
         disabled={isSubmitting}
