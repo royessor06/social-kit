@@ -1,0 +1,2 @@
+ALTER TABLE "PosterCreation"
+ADD COLUMN "downloadCount" INTEGER NOT NULL DEFAULT 0;

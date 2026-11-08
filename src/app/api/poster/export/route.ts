@@ -7,6 +7,27 @@ import { InvalidPosterDataError, renderPosterHtml } from '@/lib/template'
 
 export const maxDuration = 60
 
+type ExportPage = {
+  route: (
+    url: string,
+    handler: (route: { abort: () => Promise<void> }) => Promise<void>
+  ) => Promise<unknown>
+  setContent: (
+    html: string,
+    options: { waitUntil: 'networkidle' }
+  ) => Promise<void>
+  pdf: (options: {
+    width: string
+    height: string
+    printBackground: boolean
+  }) => Promise<Buffer>
+  screenshot: (options: {
+    type: 'png'
+    fullPage: boolean
+    clip: { x: number; y: number; width: number; height: number }
+  }) => Promise<Buffer>
+}
+
 export async function POST(request: NextRequest) {
   let body: unknown
   try {
@@ -47,11 +68,29 @@ export async function POST(request: NextRequest) {
   ) {
     return Response.json({ error: 'Paiement requis' }, { status: 403 })
   }
+  const session = await auth()
+  if (session?.user?.id) {
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { suspended: true },
+    })
+    if (!user || user.suspended) {
+      return Response.json({ error: 'Votre compte est suspendu.' }, { status: 403 })
+    }
+  }
   if (creation.userId) {
-    const session = await auth()
     if (session?.user?.id !== creation.userId) {
       return Response.json({ error: 'Accès interdit' }, { status: 403 })
     }
+  }
+  if (creation.downloadCount >= 1) {
+    return Response.json(
+      {
+        error:
+          'Vous avez déjà téléchargé cette affiche. Veuillez en créer une nouvelle pour un autre format.',
+      },
+      { status: 403 }
+    )
   }
 
   const template = await prisma.posterTemplate.findUnique({
@@ -75,19 +114,27 @@ export async function POST(request: NextRequest) {
     throw error
   }
 
-  const browser =
-    process.env.NODE_ENV === 'production'
-      ? await playwrightCoreChromium.launch({
-          args: chromium.args,
-          executablePath: await chromium.executablePath(),
-          headless: true,
-        })
-      : await (await import('playwright')).chromium.launch()
   let buffer: Buffer
+  let page: ExportPage
+  let closeBrowser: (() => Promise<void>) | undefined
   try {
-    const page = await browser.newPage({
-      viewport: { width: 1080, height: 1080 },
-    })
+    if (process.env.NODE_ENV === 'production') {
+      const browser = await playwrightCoreChromium.launch({
+        args: chromium.args,
+        executablePath: await chromium.executablePath(),
+        headless: true,
+      })
+      closeBrowser = () => browser.close()
+      page = await browser.newPage({
+        viewport: { width: 1080, height: 1080 },
+      })
+    } else {
+      const browser = await (await import('playwright')).chromium.launch()
+      closeBrowser = () => browser.close()
+      page = await browser.newPage({
+        viewport: { width: 1080, height: 1080 },
+      })
+    }
     await page.route('**/*', (route) => route.abort())
     await page.setContent(html, { waitUntil: 'networkidle' })
 
@@ -105,14 +152,47 @@ export async function POST(request: NextRequest) {
       })
       buffer = Buffer.from(screenshot)
     }
+  } catch (error) {
+    console.error('Échec de génération de l’export affiche:', error)
+    return Response.json(
+      { error: 'Impossible de générer le fichier pour le moment. Réessayez.' },
+      { status: 500 }
+    )
   } finally {
-    await browser.close()
+    await closeBrowser?.()
   }
 
-  await prisma.posterCreation.update({
-    where: { id: creationId },
-    data: { exportedAt: new Date(), format },
-  })
+  let claimed: { count: number }
+  try {
+    claimed = await prisma.posterCreation.updateMany({
+      where: {
+        id: creationId,
+        paid: true,
+        paymentStatus: 'PAID',
+        downloadCount: 0,
+      },
+      data: {
+        downloadCount: { increment: 1 },
+        exportedAt: new Date(),
+        format,
+      },
+    })
+  } catch (error) {
+    console.error('Impossible d’enregistrer le téléchargement de l’affiche:', error)
+    return Response.json(
+      { error: 'Le fichier a été généré, mais son téléchargement ne peut pas être enregistré.' },
+      { status: 503 }
+    )
+  }
+  if (claimed.count !== 1) {
+    return Response.json(
+      {
+        error:
+          'Vous avez déjà téléchargé cette affiche. Veuillez en créer une nouvelle pour un autre format.',
+      },
+      { status: 403 }
+    )
+  }
 
   return new Response(new Uint8Array(buffer), {
     headers: {

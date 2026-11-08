@@ -103,6 +103,7 @@ model PosterCreation {
   transactionId String?
   paymentMethod String?
   format        String    @default("png")
+  downloadCount Int       @default(0)
   exportedAt    DateTime?
   createdAt     DateTime  @default(now())
   userId        String?

@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { prisma } from '@/lib/prisma'
+import { enforceRateLimit } from '@/lib/rate-limit'
 
 const genericMessage =
   'Si un compte correspond à cette adresse, un lien de réinitialisation va être envoyé.'
@@ -9,6 +10,13 @@ function hashToken(token: string) {
 }
 
 export async function POST(request: Request) {
+  const rateLimitResponse = await enforceRateLimit(
+    request,
+    'auth-password-reset',
+    3
+  )
+  if (rateLimitResponse) return rateLimitResponse
+
   let body: unknown
   try {
     body = await request.json()

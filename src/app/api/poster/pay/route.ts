@@ -8,6 +8,7 @@ import {
   getFedaPayConfig,
 } from '@/lib/fedapay'
 import { InvalidPosterDataError, renderPosterHtml } from '@/lib/template'
+import { enforceRateLimit } from '@/lib/rate-limit'
 
 function isStringRecord(value: unknown): value is Record<string, string> {
   return (
@@ -19,6 +20,20 @@ function isStringRecord(value: unknown): value is Record<string, string> {
 }
 
 export async function POST(request: NextRequest) {
+  const rateLimitResponse = await enforceRateLimit(request, 'poster-pay', 5)
+  if (rateLimitResponse) return rateLimitResponse
+
+  const session = await auth()
+  if (session?.user?.id) {
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { suspended: true },
+    })
+    if (!user || user.suspended) {
+      return Response.json({ error: 'Votre compte est suspendu.' }, { status: 403 })
+    }
+  }
+
   let body: unknown
   try {
     body = await request.json()
@@ -90,17 +105,25 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const session = await auth()
-  const creation = await prisma.posterCreation.create({
-    data: {
-      templateId,
-      data: formData,
-      paid: false,
-      paymentStatus: 'PENDING',
-      format,
-      userId: session?.user?.id,
-    },
-  })
+  let creation: Awaited<ReturnType<typeof prisma.posterCreation.create>>
+  try {
+    creation = await prisma.posterCreation.create({
+      data: {
+        templateId,
+        data: formData,
+        paid: false,
+        paymentStatus: 'PENDING',
+        format,
+        userId: session?.user?.id,
+      },
+    })
+  } catch (error) {
+    console.error('Échec de création de l’affiche avant paiement:', error)
+    return Response.json(
+      { error: 'Impossible de préparer cette affiche pour le moment.' },
+      { status: 503 }
+    )
+  }
 
   const returnUrl = new URL('/paiement/succes', publicUrl)
   returnUrl.searchParams.set('creationId', creation.id)
@@ -131,20 +154,36 @@ export async function POST(request: NextRequest) {
     transactionId = String(id)
   } catch (error) {
     console.error('Échec de création de transaction FedaPay:', error)
-    await prisma.posterCreation.update({
-      where: { id: creation.id },
-      data: { paymentStatus: 'FAILED' },
-    })
+    try {
+      await prisma.posterCreation.update({
+        where: { id: creation.id },
+        data: { paymentStatus: 'FAILED' },
+      })
+    } catch (updateError) {
+      console.error('Impossible de marquer le paiement comme échoué:', updateError)
+      return Response.json(
+        { error: 'Le paiement a échoué et son statut ne peut pas être confirmé.' },
+        { status: 503 }
+      )
+    }
     return Response.json(
       { error: 'FedaPay ne peut pas préparer le paiement pour le moment. Réessayez.' },
       { status: 502 }
     )
   }
 
-  await prisma.posterCreation.update({
-    where: { id: creation.id },
-    data: { transactionId },
-  })
+  try {
+    await prisma.posterCreation.update({
+      where: { id: creation.id },
+      data: { transactionId },
+    })
+  } catch (error) {
+    console.error('Impossible d’enregistrer la transaction FedaPay:', error)
+    return Response.json(
+      { error: 'La transaction a été créée mais ne peut pas être enregistrée.' },
+      { status: 503 }
+    )
+  }
 
   return Response.json({
     creationId: creation.id,

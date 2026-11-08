@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto'
 import { join } from 'path'
 import sharp from 'sharp'
 import { put } from '@vercel/blob'
+import { enforceRateLimit } from '@/lib/rate-limit'
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 
@@ -33,6 +34,9 @@ function getImageType(buffer: Buffer) {
 }
 
 export async function POST(request: NextRequest) {
+  const rateLimitResponse = await enforceRateLimit(request, 'upload', 10)
+  if (rateLimitResponse) return rateLimitResponse
+
   try {
     const formData = await request.formData()
     const file = formData.get('file')

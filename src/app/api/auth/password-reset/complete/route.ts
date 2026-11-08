@@ -1,8 +1,16 @@
 import { createHash } from 'node:crypto'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
+import { enforceRateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: Request) {
+  const rateLimitResponse = await enforceRateLimit(
+    request,
+    'auth-password-reset',
+    3
+  )
+  if (rateLimitResponse) return rateLimitResponse
+
   let body: unknown
   try {
     body = await request.json()

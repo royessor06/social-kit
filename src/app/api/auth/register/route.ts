@@ -1,12 +1,16 @@
 import bcrypt from 'bcryptjs'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { enforceRateLimit } from '@/lib/rate-limit'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 export async function POST(request: Request) {
+  const rateLimitResponse = await enforceRateLimit(request, 'auth-register', 3)
+  if (rateLimitResponse) return rateLimitResponse
+
   let body: unknown
   try {
     body = await request.json()
