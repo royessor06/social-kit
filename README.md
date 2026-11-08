@@ -85,21 +85,28 @@ expirent après 30 minutes et ne peuvent être utilisés qu’une fois.
 
 Après ajout d’un modèle d’affiche, exécutez `npm run db:seed` pour le charger.
 
-## Paiements CinetPay
+## Paiements FedaPay
 
-Configurez `CINETPAY_API_KEY`, `CINETPAY_SITE_ID` et `CINETPAY_SECRET_KEY`
-avec les identifiants Sandbox de CinetPay, `CINETPAY_MODE=TEST`,
-`NEXT_PUBLIC_APP_URL` (URL publique joignable par le navigateur et CinetPay)
-et `POSTER_PRICE=500`. Le tarif est fixé côté serveur en XOF et n’est jamais
-accepté depuis le navigateur.
+Configurez `FEDAPAY_PUBLIC_KEY`, `FEDAPAY_SECRET_KEY` et
+`FEDAPAY_MODE=sandbox` avec les clés de test FedaPay, ainsi que
+`NEXT_PUBLIC_APP_URL` et `POSTER_PRICE=500`. Le prix et la création de la
+transaction sont contrôlés côté serveur. Le frontend ouvre ensuite la popup
+FedaPay avec l’identifiant de transaction généré par le serveur.
 
-Le webhook `/api/webhooks/cinetpay` attend une signature HMAC-SHA256 du corps
-brut dans l’en-tête `X-CinetPay-Signature`; il vérifie aussi le statut, le
-montant et la devise auprès de l’API CinetPay avant de marquer le paiement
-comme confirmé. Pour la production, remplacez les identifiants Sandbox par
-ceux du compte CinetPay Live, définissez `CINETPAY_MODE=LIVE` et configurez
-`NEXT_PUBLIC_APP_URL` avec votre domaine HTTPS; aucun changement de code
-n’est nécessaire.
+Le SDK React FedaPay annonce la compatibilité React 18+, mais sa contrainte de
+dépendance publiée exclut React 19. `.npmrc` conserve les versions React
+existantes tout en permettant son installation.
+
+Dans le tableau de bord FedaPay, configurez le webhook
+`/api/webhooks/fedapay` pour l’événement `transaction.approved`, puis stockez
+son secret unique dans `FEDAPAY_WEBHOOK_SECRET`. Le webhook valide la signature
+HMAC-SHA256 et l’horodatage, puis relit la transaction auprès de l’API FedaPay
+avant de confirmer le paiement. Le retour de popup est également vérifié par
+`/api/poster/confirm-payment`; le navigateur ne peut pas confirmer seul un
+paiement.
+
+L’ancien endpoint `/api/webhooks/cinetpay` répond désormais `410 Gone`; le
+code CinetPay est conservé dans le dépôt mais désactivé.
 
 ## Préparation au déploiement Vercel
 

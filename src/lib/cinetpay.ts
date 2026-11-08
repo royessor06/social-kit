@@ -1,3 +1,5 @@
+export { getPosterPrice } from './payment'
+
 const CINETPAY_API_BASE_URLS = {
   TEST: 'https://api-checkout.cinetpay.com',
   LIVE: 'https://api-checkout.cinetpay.com',
@@ -16,13 +18,4 @@ export function getCinetPayBaseUrl() {
   }
 
   throw new Error('CINETPAY_MODE doit être TEST ou LIVE')
-}
-
-export function getPosterPrice() {
-  const value = process.env.POSTER_PRICE || '500'
-  const amount = Number(value)
-  if (!Number.isSafeInteger(amount) || amount <= 0) {
-    throw new Error('POSTER_PRICE doit être un entier positif')
-  }
-  return amount
 }

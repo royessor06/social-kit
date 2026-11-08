@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",
+    "@gajonedev/fedapay-react": "^2.0.0",
     "@prisma/client": "^6.19.3",
     "@prisma/orm-postgres": "^8.0.0-rc.22",
     "@sparticuz/chromium": "^153.0.0",

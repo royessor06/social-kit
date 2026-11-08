@@ -1,13 +1,26 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams } from 'next/navigation'
+import {
+  FedaCheckoutButton,
+  type FedaPayResponse,
+  useFedaPayScript,
+} from '@gajonedev/fedapay-react'
 
 type VariableMeta = {
   key: string
   label: string
   type: 'text' | 'textarea' | 'color' | 'image'
   default: string
+}
+
+type CheckoutSession = {
+  creationId: string
+  transactionId: number
+  amount: number
+  publicKey: string
+  mode: 'sandbox' | 'live'
 }
 
 export default function PosterEditor() {
@@ -18,8 +31,12 @@ export default function PosterEditor() {
   const [form, setForm] = useState<Record<string, string>>({})
   const [previewHtml, setPreviewHtml] = useState('')
   const [isPaying, setIsPaying] = useState(false)
+  const [paymentError, setPaymentError] = useState('')
+  const [checkout, setCheckout] = useState<CheckoutSession | null>(null)
   const [loading, setLoading] = useState(true)
   const [format, setFormat] = useState<'png' | 'pdf'>('png')
+  const { isLoaded: fedapayScriptLoaded, error: fedapayScriptError } =
+    useFedaPayScript()
 
   // Charger les variables du template
   useEffect(() => {
@@ -82,8 +99,9 @@ export default function PosterEditor() {
     setForm((current) => ({ ...current, [key]: url }))
   }
 
-  const handlePayAndExport = async () => {
+  const handlePreparePayment = async () => {
     setIsPaying(true)
+    setPaymentError('')
     try {
       const payRes = await fetch('/api/poster/pay', {
         method: 'POST',
@@ -91,22 +109,94 @@ export default function PosterEditor() {
         body: JSON.stringify({ formData: form, templateId, format }),
       })
       const result = (await payRes.json()) as {
-        payment_url?: string
+        creationId?: string
+        transactionId?: number
+        amount?: number
+        publicKey?: string
+        mode?: 'sandbox' | 'live'
         error?: string
       }
-      if (!payRes.ok || !result.payment_url) {
+      if (
+        !payRes.ok ||
+        !result.creationId ||
+        !result.transactionId ||
+        !result.amount ||
+        !result.publicKey ||
+        !result.mode
+      ) {
         throw new Error(result.error ?? 'Le paiement a échoué')
       }
-      window.location.href = result.payment_url
+      setCheckout({
+        creationId: result.creationId,
+        transactionId: result.transactionId,
+        amount: result.amount,
+        publicKey: result.publicKey,
+        mode: result.mode,
+      })
     } catch (error) {
-      setIsPaying(false)
-      alert(
-        error instanceof Error
-          ? error.message
-          : 'Le paiement a échoué. Réessayez.'
+      setPaymentError(
+        error instanceof Error ? error.message : 'Le paiement a échoué. Réessayez.'
       )
+    } finally {
+      setIsPaying(false)
     }
   }
+
+  const handleCheckoutComplete = useCallback(async (response: FedaPayResponse) => {
+    if (!checkout) return
+    if (response.reason.toLowerCase().includes('dismiss')) {
+      setPaymentError('La fenêtre de paiement a été fermée. Vous pouvez réessayer.')
+      return
+    }
+
+    setIsPaying(true)
+    setPaymentError('')
+    try {
+      const confirmation = await fetch('/api/poster/confirm-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creationId: checkout.creationId }),
+      })
+      const result = (await confirmation.json()) as { paid?: boolean; error?: string }
+      if (!confirmation.ok || !result.paid) {
+        throw new Error(result.error ?? 'Le paiement n’a pas encore été confirmé.')
+      }
+
+      const successUrl = new URL('/paiement/succes', window.location.origin)
+      successUrl.searchParams.set('creationId', checkout.creationId)
+      successUrl.searchParams.set('templateId', templateId)
+      successUrl.searchParams.set('format', format)
+      window.location.assign(successUrl.toString())
+    } catch (error) {
+      setPaymentError(
+        error instanceof Error
+          ? error.message
+          : 'La vérification du paiement a échoué. Réessayez.'
+      )
+    } finally {
+      setIsPaying(false)
+    }
+  }, [checkout, format, templateId])
+
+  const checkoutOptions = useMemo(
+    () =>
+      checkout
+        ? {
+            public_key: checkout.publicKey,
+            environment: checkout.mode,
+            locale: 'fr' as const,
+            transaction: {
+              id: checkout.transactionId,
+              amount: checkout.amount,
+              description: 'Affiche SOCIAL KIT',
+              custom_metadata: { creationId: checkout.creationId },
+            },
+            currency: { iso: 'XOF' },
+            onComplete: handleCheckoutComplete,
+          }
+        : null,
+    [checkout, handleCheckoutComplete]
+  )
 
   if (loading) {
     return (
@@ -132,6 +222,7 @@ export default function PosterEditor() {
                   type="text"
                   name={v.key}
                   value={form[v.key] || ''}
+                  disabled={Boolean(checkout)}
                   onChange={handleChange}
                   className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
                 />
@@ -141,6 +232,7 @@ export default function PosterEditor() {
                 <textarea
                   name={v.key}
                   value={form[v.key] || ''}
+                  disabled={Boolean(checkout)}
                   onChange={handleChange}
                   rows={3}
                   className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
@@ -152,6 +244,7 @@ export default function PosterEditor() {
                   type="color"
                   name={v.key}
                   value={form[v.key] || '#000000'}
+                  disabled={Boolean(checkout)}
                   onChange={handleChange}
                   className="h-10 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-900"
                 />
@@ -162,6 +255,7 @@ export default function PosterEditor() {
                   <input
                     type="file"
                     accept="image/*"
+                    disabled={Boolean(checkout)}
                     onChange={(e) => handleImageUpload(v.key, e)}
                     className="w-full text-sm text-slate-400 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-800 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-slate-700"
                   />
@@ -182,6 +276,7 @@ export default function PosterEditor() {
           <label className="mb-2 block text-sm text-slate-400">Format</label>
           <div className="flex gap-2">
             <button
+              disabled={Boolean(checkout)}
               onClick={() => setFormat('png')}
               className={`flex-1 rounded-lg py-2 text-sm font-medium ${
                 format === 'png'
@@ -192,6 +287,7 @@ export default function PosterEditor() {
               PNG
             </button>
             <button
+              disabled={Boolean(checkout)}
               onClick={() => setFormat('pdf')}
               className={`flex-1 rounded-lg py-2 text-sm font-medium ${
                 format === 'pdf'
@@ -204,13 +300,39 @@ export default function PosterEditor() {
           </div>
         </div>
 
-        <button
-          onClick={handlePayAndExport}
-          disabled={isPaying}
-          className="mt-6 w-full rounded-xl bg-emerald-500 py-3 font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
-        >
-          {isPaying ? 'Traitement…' : `Payer et télécharger (${format.toUpperCase()})`}
-        </button>
+        {checkout && checkoutOptions ? (
+          <FedaCheckoutButton
+            options={checkoutOptions}
+            disabled={isPaying || !fedapayScriptLoaded || Boolean(fedapayScriptError)}
+            className="mt-6 w-full rounded-xl bg-emerald-500 py-3 font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
+          >
+            {isPaying
+              ? 'Vérification du paiement…'
+              : fedapayScriptError
+                ? 'Paiement momentanément indisponible'
+                : !fedapayScriptLoaded
+                  ? 'Chargement de FedaPay…'
+                  : `Payer ${checkout.amount} XOF`}
+          </FedaCheckoutButton>
+        ) : (
+          <button
+            onClick={handlePreparePayment}
+            disabled={isPaying}
+            className="mt-6 w-full rounded-xl bg-emerald-500 py-3 font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
+          >
+            {isPaying ? 'Préparation…' : `Continuer vers le paiement (${format.toUpperCase()})`}
+          </button>
+        )}
+        {paymentError && (
+          <p role="alert" className="mt-3 text-sm text-red-300">
+            {paymentError}
+          </p>
+        )}
+        {checkout && fedapayScriptError && (
+          <p role="alert" className="mt-3 text-sm text-red-300">
+            Le module de paiement FedaPay n’a pas pu être chargé. Actualisez la page pour réessayer.
+          </p>
+        )}
       </aside>
 
       <main className="flex flex-1 items-center justify-center bg-slate-900 p-8">

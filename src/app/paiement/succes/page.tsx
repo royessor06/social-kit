@@ -68,7 +68,7 @@ async function PaymentResult({
           {isPaid
             ? 'Votre affiche est prête à être téléchargée.'
             : creation
-              ? 'La confirmation de CinetPay est en cours. Actualisez cette page dans quelques instants.'
+              ? 'La confirmation de FedaPay est en cours. Actualisez cette page dans quelques instants.'
               : 'Cette demande de paiement est introuvable ou ne correspond pas à votre compte.'}
         </p>
         <div className="mt-8">

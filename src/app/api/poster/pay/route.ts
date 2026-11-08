@@ -1,8 +1,12 @@
-import { randomUUID } from 'node:crypto'
 import { NextRequest } from 'next/server'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
-import { getCinetPayBaseUrl, getPosterPrice } from '@/lib/cinetpay'
+import { getPosterPrice } from '@/lib/payment'
+import {
+  extractFedaPayTransaction,
+  fedaPayRequest,
+  getFedaPayConfig,
+} from '@/lib/fedapay'
 import { InvalidPosterDataError, renderPosterHtml } from '@/lib/template'
 
 function isStringRecord(value: unknown): value is Record<string, string> {
@@ -59,22 +63,14 @@ export async function POST(request: NextRequest) {
     throw error
   }
 
-  const apiKey = process.env.CINETPAY_API_KEY
-  const siteId = process.env.CINETPAY_SITE_ID
   const appUrl = process.env.NEXT_PUBLIC_APP_URL
-  if (!apiKey || !siteId || !appUrl) {
-    return Response.json(
-      { error: 'La configuration CinetPay est incomplète' },
-      { status: 503 }
-    )
-  }
-
-  let baseUrl: string
+  let fedapayConfig: ReturnType<typeof getFedaPayConfig>
   let amount: number
   let publicUrl: URL
   try {
-    baseUrl = getCinetPayBaseUrl()
+    fedapayConfig = getFedaPayConfig()
     amount = getPosterPrice()
+    if (!appUrl) throw new Error('NEXT_PUBLIC_APP_URL doit être configurée')
     publicUrl = new URL(appUrl)
     if (
       publicUrl.protocol !== 'https:' &&
@@ -88,21 +84,19 @@ export async function POST(request: NextRequest) {
         error:
           error instanceof Error
             ? error.message
-            : 'La configuration CinetPay est invalide',
+            : 'La configuration FedaPay est invalide',
       },
       { status: 503 }
     )
   }
 
   const session = await auth()
-  const transactionId = randomUUID()
   const creation = await prisma.posterCreation.create({
     data: {
       templateId,
       data: formData,
       paid: false,
       paymentStatus: 'PENDING',
-      transactionId,
       format,
       userId: session?.user?.id,
     },
@@ -112,89 +106,51 @@ export async function POST(request: NextRequest) {
   returnUrl.searchParams.set('creationId', creation.id)
   returnUrl.searchParams.set('templateId', templateId)
   returnUrl.searchParams.set('format', format)
-  const notifyUrl = new URL('/api/webhooks/cinetpay', publicUrl)
-
-  let paymentResponse: Response
+  let transactionId: string
   try {
-    paymentResponse = await fetch(`${baseUrl}/v2/payment`, {
+    const result = await fedaPayRequest('/transactions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(15000),
       body: JSON.stringify({
-        apikey: apiKey,
-        site_id: siteId,
-        transaction_id: transactionId,
         amount,
-        currency: 'XOF',
-        description: 'Téléchargement d’une affiche SOCIAL KIT',
-        notify_url: notifyUrl.toString(),
-        return_url: returnUrl.toString(),
-        channels: 'ALL',
-        lang: 'FR',
-        metadata: JSON.stringify({ creationId: creation.id }),
+        currency: { iso: 'XOF' },
+        description: 'Affiche SOCIAL KIT',
+        callback_url: returnUrl.toString(),
+        custom_metadata: { creationId: creation.id },
       }),
     })
-  } catch {
+
+    const transaction = extractFedaPayTransaction(result)
+    const id = transaction?.id
+    if (
+      typeof id !== 'number' ||
+      !Number.isSafeInteger(id) ||
+      id <= 0
+    ) {
+      throw new Error('Réponse de création FedaPay invalide')
+    }
+    transactionId = String(id)
+  } catch (error) {
+    console.error('Échec de création de transaction FedaPay:', error)
     await prisma.posterCreation.update({
       where: { id: creation.id },
       data: { paymentStatus: 'FAILED' },
     })
     return Response.json(
-      { error: 'CinetPay est momentanément injoignable. Réessayez.' },
+      { error: 'FedaPay ne peut pas préparer le paiement pour le moment. Réessayez.' },
       { status: 502 }
     )
   }
 
-  let result: unknown
-  try {
-    result = await paymentResponse.json()
-  } catch {
-    await prisma.posterCreation.update({
-      where: { id: creation.id },
-      data: { paymentStatus: 'FAILED' },
-    })
-    return Response.json(
-      { error: 'Réponse CinetPay invalide' },
-      { status: 502 }
-    )
-  }
-
-  const paymentUrl =
-    typeof result === 'object' &&
-    result !== null &&
-    !Array.isArray(result) &&
-    typeof (result as { data?: { payment_url?: unknown } }).data?.payment_url ===
-      'string'
-      ? (result as { data: { payment_url: string } }).data.payment_url
-      : ''
-  let trustedPaymentUrl: URL | null = null
-  try {
-    trustedPaymentUrl = new URL(paymentUrl)
-  } catch {
-    trustedPaymentUrl = null
-  }
-
-  if (
-    !paymentResponse.ok ||
-    !trustedPaymentUrl ||
-    trustedPaymentUrl.protocol !== 'https:' ||
-    !(
-      trustedPaymentUrl.hostname === 'cinetpay.com' ||
-      trustedPaymentUrl.hostname.endsWith('.cinetpay.com')
-    )
-  ) {
-    await prisma.posterCreation.update({
-      where: { id: creation.id },
-      data: { paymentStatus: 'FAILED' },
-    })
-    return Response.json(
-      { error: 'CinetPay n’a pas pu générer le lien de paiement' },
-      { status: 502 }
-    )
-  }
+  await prisma.posterCreation.update({
+    where: { id: creation.id },
+    data: { transactionId },
+  })
 
   return Response.json({
     creationId: creation.id,
-    payment_url: trustedPaymentUrl.toString(),
+    transactionId: Number(transactionId),
+    amount,
+    publicKey: fedapayConfig.publicKey,
+    mode: fedapayConfig.mode,
   })
 }
