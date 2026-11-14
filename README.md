@@ -85,6 +85,25 @@ expirent après 30 minutes et ne peuvent être utilisés qu’une fois.
 
 Après ajout d’un modèle d’affiche, exécutez `npm run db:seed` pour le charger.
 
+## Tests de bout en bout
+
+Avec PostgreSQL configuré et les migrations appliquées, démarrez l’application
+puis lancez le parcours de création et publication dans un navigateur Playwright :
+
+```bash
+npm ci
+npx prisma migrate dev
+npm run dev
+# Dans un autre terminal
+npm run test:e2e:site
+```
+
+Le test crée un compte et un site temporaires, vérifie leur enregistrement dans
+PostgreSQL et l’ouverture de l’URL publique, puis supprime les données de test.
+Si la base ne contient aucun modèle de site, les modèles de démonstration sont
+chargés automatiquement. Sous Windows, Edge est utilisé par défaut ; ailleurs,
+installez Chromium avec `npx playwright install chromium`.
+
 ## Accès gratuit
 
 La création et le téléchargement d’affiches ainsi que la création et la
