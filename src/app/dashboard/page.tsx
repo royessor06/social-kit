@@ -3,6 +3,7 @@ import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
+import { getUserPlan, PLANS } from '@/lib/plans'
 import { PosterDownloadButtons } from './PosterDownloadButtons'
 import { SignOutButton } from './SignOutButton'
 
@@ -35,7 +36,7 @@ async function DashboardContent() {
   const session = await auth()
   if (!session?.user?.id) redirect('/login')
 
-  const [account, posters, sites] = await Promise.all([
+  const [account, posters, sites, subscriptionState] = await Promise.all([
     prisma.user.findUnique({
       where: { id: session.user.id },
       select: { role: true, suspended: true },
@@ -56,6 +57,7 @@ async function DashboardContent() {
         updatedAt: true,
       },
     }),
+    getUserPlan(session.user.id),
   ])
 
   return (
@@ -92,6 +94,30 @@ async function DashboardContent() {
             Créer un site
           </Link>
         </div>
+
+        <section className="mt-8 rounded-xl border border-slate-800 bg-slate-900 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold">Mon abonnement</h2>
+              <p className="mt-1 text-slate-300">
+                Offre {PLANS[subscriptionState.plan].name}
+              </p>
+              {subscriptionState.subscription ? (
+                <p className="mt-1 text-sm text-slate-400">
+                  Actif jusqu’au{' '}
+                  {subscriptionState.subscription.endDate.toLocaleDateString('fr-FR')}
+                </p>
+              ) : (
+                <p className="mt-1 text-sm text-slate-400">
+                  La création et le téléchargement d’affiches sont gratuits.
+                </p>
+              )}
+            </div>
+            <p className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm text-slate-400">
+              Les abonnements seront bientôt disponibles.
+            </p>
+          </div>
+        </section>
 
         <section className="mt-10">
           <h2 className="text-2xl font-bold">Mes affiches</h2>

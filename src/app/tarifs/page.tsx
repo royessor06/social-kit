@@ -22,7 +22,7 @@ export default function PricingPage() {
             Une formule pour chaque étape
           </h1>
           <p className="mt-4 text-slate-400">
-            Choisissez votre offre. Les abonnements seront bientôt disponibles.
+            Les abonnements seront bientôt disponibles. En attendant, profitez de la création d’affiches gratuite.
           </p>
         </div>
 
@@ -50,14 +50,15 @@ export default function PricingPage() {
                   </li>
                   {key === 'FREE' && <li>• Création de compte gratuite</li>}
                   {key === 'PREMIUM' && <li>• Jusqu’à 5 sites publiés</li>}
+                  {plan.premiumTemplates && <li>• Accès aux futurs modèles premium</li>}
                 </ul>
                 {paid ? (
-                  <Link
-                    href={`/paiement/abonnement?plan=${key}`}
-                    className="mt-8 rounded-xl bg-emerald-500 px-4 py-3 text-center font-semibold text-slate-950 transition hover:bg-emerald-400"
+                  <span
+                    aria-disabled="true"
+                    className="mt-8 rounded-xl border border-slate-700 px-4 py-3 text-center font-semibold text-slate-500"
                   >
-                    Choisir cette offre
-                  </Link>
+                    Bientôt disponible
+                  </span>
                 ) : (
                   <Link
                     href="/register"

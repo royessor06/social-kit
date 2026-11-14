@@ -8,7 +8,11 @@ export default function PosterPage() {
         Chargement du modèle…
       </main>
     }>
-      <PosterEditor />
+      <PosterEditorContent />
     </Suspense>
   )
+}
+
+function PosterEditorContent() {
+  return <PosterEditor />
 }

@@ -4,6 +4,7 @@ import { chromium as playwrightCoreChromium } from 'playwright-core'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { InvalidPosterDataError, renderPosterHtml } from '@/lib/template'
+import { enforceRateLimit } from '@/lib/rate-limit'
 
 export const maxDuration = 60
 
@@ -29,6 +30,9 @@ type ExportPage = {
 }
 
 export async function POST(request: NextRequest) {
+  const rateLimitResponse = await enforceRateLimit(request, 'poster-export', 10)
+  if (rateLimitResponse) return rateLimitResponse
+
   let body: unknown
   try {
     body = await request.json()
@@ -62,11 +66,9 @@ export async function POST(request: NextRequest) {
   })
   if (
     !creation ||
-    !creation.paid ||
-    creation.paymentStatus !== 'PAID' ||
     creation.templateId !== templateId
   ) {
-    return Response.json({ error: 'Paiement requis' }, { status: 403 })
+    return Response.json({ error: 'Affiche introuvable' }, { status: 404 })
   }
   const session = await auth()
   if (session?.user?.id) {
@@ -83,16 +85,6 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: 'Accès interdit' }, { status: 403 })
     }
   }
-  if (creation.downloadCount >= 1) {
-    return Response.json(
-      {
-        error:
-          'Vous avez déjà téléchargé cette affiche. Veuillez en créer une nouvelle pour un autre format.',
-      },
-      { status: 403 }
-    )
-  }
-
   const template = await prisma.posterTemplate.findUnique({
     where: { id: templateId },
   })
@@ -167,9 +159,6 @@ export async function POST(request: NextRequest) {
     claimed = await prisma.posterCreation.updateMany({
       where: {
         id: creationId,
-        paid: true,
-        paymentStatus: 'PAID',
-        downloadCount: 0,
       },
       data: {
         downloadCount: { increment: 1 },
@@ -185,13 +174,7 @@ export async function POST(request: NextRequest) {
     )
   }
   if (claimed.count !== 1) {
-    return Response.json(
-      {
-        error:
-          'Vous avez déjà téléchargé cette affiche. Veuillez en créer une nouvelle pour un autre format.',
-      },
-      { status: 403 }
-    )
+    return Response.json({ error: 'Affiche introuvable' }, { status: 404 })
   }
 
   return new Response(new Uint8Array(buffer), {

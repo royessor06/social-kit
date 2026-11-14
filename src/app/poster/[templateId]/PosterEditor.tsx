@@ -1,26 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import {
-  FedaCheckoutButton,
-  type FedaPayResponse,
-  useFedaPayScript,
-} from '@gajonedev/fedapay-react'
 
 type VariableMeta = {
   key: string
   label: string
   type: 'text' | 'textarea' | 'color' | 'image'
   default: string
-}
-
-type CheckoutSession = {
-  creationId: string
-  transactionId: number
-  amount: number
-  publicKey: string
-  mode: 'sandbox' | 'live'
 }
 
 export default function PosterEditor() {
@@ -30,13 +17,10 @@ export default function PosterEditor() {
   const [variables, setVariables] = useState<VariableMeta[]>([])
   const [form, setForm] = useState<Record<string, string>>({})
   const [previewHtml, setPreviewHtml] = useState('')
-  const [isPaying, setIsPaying] = useState(false)
-  const [paymentError, setPaymentError] = useState('')
-  const [checkout, setCheckout] = useState<CheckoutSession | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportError, setExportError] = useState('')
   const [loading, setLoading] = useState(true)
   const [format, setFormat] = useState<'png' | 'pdf'>('png')
-  const { isLoaded: fedapayScriptLoaded, error: fedapayScriptError } =
-    useFedaPayScript()
 
   // Charger les variables du template
   useEffect(() => {
@@ -99,104 +83,49 @@ export default function PosterEditor() {
     setForm((current) => ({ ...current, [key]: url }))
   }
 
-  const handlePreparePayment = async () => {
-    setIsPaying(true)
-    setPaymentError('')
+  const handleExport = async () => {
+    setIsExporting(true)
+    setExportError('')
     try {
-      const payRes = await fetch('/api/poster/pay', {
+      const createRes = await fetch('/api/poster/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ formData: form, templateId, format }),
       })
-      const result = (await payRes.json()) as {
+      const creation = (await createRes.json()) as {
         creationId?: string
-        transactionId?: number
-        amount?: number
-        publicKey?: string
-        mode?: 'sandbox' | 'live'
         error?: string
       }
-      if (
-        !payRes.ok ||
-        !result.creationId ||
-        !result.transactionId ||
-        !result.amount ||
-        !result.publicKey ||
-        !result.mode
-      ) {
-        throw new Error(result.error ?? 'Le paiement a échoué')
+      if (!createRes.ok || !creation.creationId) {
+        throw new Error(creation.error ?? 'Impossible de préparer cette affiche.')
       }
-      setCheckout({
-        creationId: result.creationId,
-        transactionId: result.transactionId,
-        amount: result.amount,
-        publicKey: result.publicKey,
-        mode: result.mode,
-      })
-    } catch (error) {
-      setPaymentError(
-        error instanceof Error ? error.message : 'Le paiement a échoué. Réessayez.'
-      )
-    } finally {
-      setIsPaying(false)
-    }
-  }
 
-  const handleCheckoutComplete = useCallback(async (response: FedaPayResponse) => {
-    if (!checkout) return
-    if (response.reason.toLowerCase().includes('dismiss')) {
-      setPaymentError('La fenêtre de paiement a été fermée. Vous pouvez réessayer.')
-      return
-    }
-
-    setIsPaying(true)
-    setPaymentError('')
-    try {
-      const confirmation = await fetch('/api/poster/confirm-payment', {
+      const exportRes = await fetch('/api/poster/export', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creationId: checkout.creationId }),
+        body: JSON.stringify({ creationId: creation.creationId, templateId, format }),
       })
-      const result = (await confirmation.json()) as { paid?: boolean; error?: string }
-      if (!confirmation.ok || !result.paid) {
-        throw new Error(result.error ?? 'Le paiement n’a pas encore été confirmé.')
+      if (!exportRes.ok) {
+        const result = (await exportRes.json()) as { error?: string }
+        throw new Error(result.error ?? 'Le téléchargement a échoué.')
       }
 
-      const successUrl = new URL('/paiement/succes', window.location.origin)
-      successUrl.searchParams.set('creationId', checkout.creationId)
-      successUrl.searchParams.set('templateId', templateId)
-      successUrl.searchParams.set('format', format)
-      window.location.assign(successUrl.toString())
+      const url = URL.createObjectURL(await exportRes.blob())
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `affiche-${creation.creationId}.${format}`
+      anchor.click()
+      URL.revokeObjectURL(url)
     } catch (error) {
-      setPaymentError(
+      setExportError(
         error instanceof Error
           ? error.message
-          : 'La vérification du paiement a échoué. Réessayez.'
+          : 'Le téléchargement a échoué. Réessayez.'
       )
     } finally {
-      setIsPaying(false)
+      setIsExporting(false)
     }
-  }, [checkout, format, templateId])
-
-  const checkoutOptions = useMemo(
-    () =>
-      checkout
-        ? {
-            public_key: checkout.publicKey,
-            environment: checkout.mode,
-            locale: 'fr' as const,
-            transaction: {
-              id: checkout.transactionId,
-              amount: checkout.amount,
-              description: 'Affiche SOCIAL KIT',
-              custom_metadata: { creationId: checkout.creationId },
-            },
-            currency: { iso: 'XOF' },
-            onComplete: handleCheckoutComplete,
-          }
-        : null,
-    [checkout, handleCheckoutComplete]
-  )
+  }
 
   if (loading) {
     return (
@@ -222,7 +151,6 @@ export default function PosterEditor() {
                   type="text"
                   name={v.key}
                   value={form[v.key] || ''}
-                  disabled={Boolean(checkout)}
                   onChange={handleChange}
                   className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
                 />
@@ -232,7 +160,6 @@ export default function PosterEditor() {
                 <textarea
                   name={v.key}
                   value={form[v.key] || ''}
-                  disabled={Boolean(checkout)}
                   onChange={handleChange}
                   rows={3}
                   className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
@@ -244,7 +171,6 @@ export default function PosterEditor() {
                   type="color"
                   name={v.key}
                   value={form[v.key] || '#000000'}
-                  disabled={Boolean(checkout)}
                   onChange={handleChange}
                   className="h-10 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-900"
                 />
@@ -255,7 +181,6 @@ export default function PosterEditor() {
                   <input
                     type="file"
                     accept="image/*"
-                    disabled={Boolean(checkout)}
                     onChange={(e) => handleImageUpload(v.key, e)}
                     className="w-full text-sm text-slate-400 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-800 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-slate-700"
                   />
@@ -276,7 +201,6 @@ export default function PosterEditor() {
           <label className="mb-2 block text-sm text-slate-400">Format</label>
           <div className="flex gap-2">
             <button
-              disabled={Boolean(checkout)}
               onClick={() => setFormat('png')}
               className={`flex-1 rounded-lg py-2 text-sm font-medium ${
                 format === 'png'
@@ -287,7 +211,6 @@ export default function PosterEditor() {
               PNG
             </button>
             <button
-              disabled={Boolean(checkout)}
               onClick={() => setFormat('pdf')}
               className={`flex-1 rounded-lg py-2 text-sm font-medium ${
                 format === 'pdf'
@@ -300,37 +223,17 @@ export default function PosterEditor() {
           </div>
         </div>
 
-        {checkout && checkoutOptions ? (
-          <FedaCheckoutButton
-            options={checkoutOptions}
-            disabled={isPaying || !fedapayScriptLoaded || Boolean(fedapayScriptError)}
-            className="mt-6 w-full rounded-xl bg-emerald-500 py-3 font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
-          >
-            {isPaying
-              ? 'Vérification du paiement…'
-              : fedapayScriptError
-                ? 'Paiement momentanément indisponible'
-                : !fedapayScriptLoaded
-                  ? 'Chargement de FedaPay…'
-                  : `Payer ${checkout.amount} XOF`}
-          </FedaCheckoutButton>
-        ) : (
-          <button
-            onClick={handlePreparePayment}
-            disabled={isPaying}
-            className="mt-6 w-full rounded-xl bg-emerald-500 py-3 font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
-          >
-            {isPaying ? 'Préparation…' : `Continuer vers le paiement (${format.toUpperCase()})`}
-          </button>
-        )}
-        {paymentError && (
+        <button
+          type="button"
+          onClick={handleExport}
+          disabled={isExporting}
+          className="mt-6 w-full rounded-xl bg-emerald-500 py-3 font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
+        >
+          {isExporting ? 'Préparation…' : 'Télécharger l’affiche'}
+        </button>
+        {exportError && (
           <p role="alert" className="mt-3 text-sm text-red-300">
-            {paymentError}
-          </p>
-        )}
-        {checkout && fedapayScriptError && (
-          <p role="alert" className="mt-3 text-sm text-red-300">
-            Le module de paiement FedaPay n’a pas pu être chargé. Actualisez la page pour réessayer.
+            {exportError}
           </p>
         )}
       </aside>
