@@ -2,8 +2,9 @@ import Link from 'next/link'
 import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
+import { AppHeader } from '@/components/layout/AppHeader'
+import { Badge, buttonClasses, Card, CardContent } from '@/components/ui'
 import { prisma } from '@/lib/prisma'
-import { getUserPlan, PLANS } from '@/lib/plans'
 import { PosterDownloadButtons } from './PosterDownloadButtons'
 import { SignOutButton } from './SignOutButton'
 
@@ -36,7 +37,7 @@ async function DashboardContent() {
   const session = await auth()
   if (!session?.user?.id) redirect('/login')
 
-  const [account, posters, sites, subscriptionState] = await Promise.all([
+  const [account, posters, sites] = await Promise.all([
     prisma.user.findUnique({
       where: { id: session.user.id },
       select: { role: true, suspended: true },
@@ -57,132 +58,137 @@ async function DashboardContent() {
         updatedAt: true,
       },
     }),
-    getUserPlan(session.user.id),
   ])
+
+  const isAdmin = Boolean(account?.role === 'ADMIN' && !account.suspended)
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
-      <header className="border-b border-slate-800">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-5">
-          <Link href="/" className="text-xl font-bold tracking-tight">SOCIAL KIT</Link>
-          <div className="flex items-center gap-4">
-            {account?.role === 'ADMIN' && !account.suspended && (
-              <Link href="/admin" className="text-sm text-emerald-400 hover:text-emerald-300">
-                Administration
-              </Link>
-            )}
+      <AppHeader
+        activeNav="dashboard"
+        user={{
+          name: session.user.name,
+          email: session.user.email,
+          isAdmin,
+        }}
+        rightSlot={
+          <div className="flex items-center gap-3">
             <span className="hidden text-sm text-slate-400 sm:inline">
               {session.user.name ?? session.user.email}
             </span>
             <SignOutButton />
           </div>
-        </div>
-      </header>
+        }
+      />
 
-      <div className="mx-auto max-w-6xl px-6 py-10">
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-400">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-400">
               Espace personnel
             </p>
-            <h1 className="mt-2 text-3xl font-extrabold">Bonjour {session.user.name ?? ''}</h1>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight">
+              Bonjour {session.user.name ?? ''}
+            </h1>
           </div>
-          <Link
-            href="/site/nouveau"
-            className="rounded-lg bg-emerald-500 px-4 py-2.5 font-semibold text-slate-950 hover:bg-emerald-400"
-          >
-            Créer un site
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/templates"
+              className={buttonClasses({ variant: 'outline', size: 'md' })}
+            >
+              Créer une affiche
+            </Link>
+            <Link
+              href="/site/nouveau"
+              className={buttonClasses({ variant: 'primary', size: 'md' })}
+            >
+              Créer un site
+            </Link>
+          </div>
         </div>
 
-        <section className="mt-8 rounded-xl border border-slate-800 bg-slate-900 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-bold">Mon abonnement</h2>
-              <p className="mt-1 text-slate-300">
-                Offre {PLANS[subscriptionState.plan].name}
-              </p>
-              {subscriptionState.subscription ? (
-                <p className="mt-1 text-sm text-slate-400">
-                  Actif jusqu’au{' '}
-                  {subscriptionState.subscription.endDate.toLocaleDateString('fr-FR')}
-                </p>
-              ) : (
-                <p className="mt-1 text-sm text-slate-400">
-                  La création et le téléchargement d’affiches sont gratuits.
-                </p>
-              )}
-            </div>
-            <p className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm text-slate-400">
-              Les abonnements seront bientôt disponibles.
-            </p>
-          </div>
-        </section>
-
         <section className="mt-10">
-          <h2 className="text-2xl font-bold">Mes affiches</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Mes affiches</h2>
           {posters.length ? (
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {posters.map((poster) => (
-                <article key={poster.id} className="rounded-xl border border-slate-800 bg-slate-900 p-5">
-                  <h3 className="font-semibold">{getPosterTitle(poster.data)}</h3>
-                  <p className="mt-1 text-sm text-slate-400">{poster.template.name}</p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Créée le {poster.createdAt.toLocaleDateString('fr-FR')}
-                  </p>
-                  <div className="mt-4">
-                    <PosterDownloadButtons
-                      creationId={poster.id}
-                      templateId={poster.templateId}
-                    />
-                  </div>
-                </article>
+                <Card key={poster.id}>
+                  <CardContent>
+                    <h3 className="font-semibold text-white">
+                      {getPosterTitle(poster.data)}
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-400">
+                      {poster.template.name}
+                    </p>
+                    <p className="mt-1 text-xs tabular-nums text-slate-500">
+                      Créée le {poster.createdAt.toLocaleDateString('fr-FR')}
+                    </p>
+                    <div className="mt-4">
+                      <PosterDownloadButtons
+                        creationId={poster.id}
+                        templateId={poster.templateId}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           ) : (
-            <p className="mt-3 rounded-xl border border-slate-800 bg-slate-900 p-5 text-slate-400">
-              Vous n’avez pas encore d’affiches associées à ce compte.
-            </p>
+            <Card className="mt-3">
+              <CardContent className="text-sm text-slate-400">
+                Vous n’avez pas encore d’affiches associées à ce compte.
+              </CardContent>
+            </Card>
           )}
         </section>
 
         <section className="mt-12">
-          <h2 className="text-2xl font-bold">Mes sites</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Mes sites</h2>
           {sites.length ? (
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {sites.map((site) => (
-                <article key={site.id} className="rounded-xl border border-slate-800 bg-slate-900 p-5">
-                  <h3 className="font-semibold">{site.businessName}</h3>
-                  <p className="mt-1 text-sm text-slate-400">
-                    {site.published ? 'Publié' : 'Non publié'} · modifié le{' '}
-                    {site.updatedAt.toLocaleDateString('fr-FR')}
-                  </p>
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    <Link
-                      href={`/${site.slug}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:border-emerald-500 hover:text-emerald-300"
-                    >
-                      Voir le site
-                    </Link>
-                    <Link
-                      href={`/site/${site.slug}/edit`}
-                      className="rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400"
-                    >
-                      Modifier
-                    </Link>
-                  </div>
-                </article>
+                <Card key={site.id}>
+                  <CardContent>
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-semibold text-white">
+                        {site.businessName}
+                      </h3>
+                      <Badge variant={site.published ? 'success' : 'neutral'}>
+                        {site.published ? 'Publié' : 'Brouillon'}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-sm tabular-nums text-slate-400">
+                      Modifié le {site.updatedAt.toLocaleDateString('fr-FR')}
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-2.5">
+                      <Link
+                        href={`/${site.slug}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={buttonClasses({ variant: 'outline', size: 'sm' })}
+                      >
+                        Voir le site
+                      </Link>
+                      <Link
+                        href={`/site/${site.slug}/edit`}
+                        className={buttonClasses({ variant: 'primary', size: 'sm' })}
+                      >
+                        Modifier
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           ) : (
-            <p className="mt-3 rounded-xl border border-slate-800 bg-slate-900 p-5 text-slate-400">
-              Vous n’avez pas encore de sites.{' '}
-              <Link href="/site/nouveau" className="text-emerald-400 hover:underline">
-                Créez votre premier site.
-              </Link>
-            </p>
+            <Card className="mt-3">
+              <CardContent className="text-sm text-slate-400">
+                Vous n’avez pas encore de sites.{' '}
+                <Link href="/site/nouveau" className="text-emerald-400 hover:underline">
+                  Créez votre premier site.
+                </Link>
+              </CardContent>
+            </Card>
           )}
         </section>
       </div>

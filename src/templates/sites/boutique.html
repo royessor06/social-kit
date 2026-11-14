@@ -18,21 +18,32 @@
     h1 { max-width: 560px; margin: 17px 0; font-family: Georgia, serif; font-size: clamp(48px, 6vw, 78px); line-height: 1.02; letter-spacing: -.05em; }
     .lead { max-width: 500px; color: #6b6d64; font-size: 16px; line-height: 1.8; }
     .cta { display: inline-block; margin-top: 20px; padding: 15px 22px; color: white; background: var(--accent); font-size: 13px; font-weight: 700; }
-    .visual { height: 440px; display: grid; place-items: center; overflow: hidden; background: #e6e5d9; }
-    .visual .logo-img { width: 100%; height: 100%; object-fit: cover; }
-    .visual-empty { color: #77796d; font: 14px Georgia, serif; }
+    .cta-contact { display: none; }
+    .visual { position: relative; height: 440px; display: grid; place-items: center; overflow: hidden; background: #e6e5d9; }
+    .visual .logo-img { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: cover; display: block; }
+    .visual-empty { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: #77796d; font: 14px/1.6 Georgia, serif; }
+    .visual:has(.logo-img) .visual-empty { display: none; }
     .collection { padding: 66px 0 82px; background: white; }
     .heading { display: flex; justify-content: space-between; align-items: end; gap: 20px; margin-bottom: 32px; }
     .heading h2 { margin: 8px 0 0; font: 42px Georgia, serif; }
-    .items { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .items { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
     .item { min-height: 210px; padding: 27px; background: var(--paper); }
+    .item:has(h3:empty):has(p:empty) { display: none; }
+    .item h3:empty, .item p:empty { display: none; }
+    body:not(:has(.items h3:not(:empty), .items p:not(:empty))) #selection,
+    body:not(:has(.items h3:not(:empty), .items p:not(:empty))) nav a[href="#selection"],
+    body:not(:has(.items h3:not(:empty), .items p:not(:empty))) .cta-selection { display: none; }
+    body:not(:has(.items h3:not(:empty), .items p:not(:empty))) .cta-contact { display: inline-block; }
     .item span { color: var(--accent); font-size: 11px; font-weight: 800; letter-spacing: .16em; }
     .item h3 { margin: 34px 0 10px; font: 24px Georgia, serif; }
     .item p { margin: 0; color: #71736b; font-size: 14px; line-height: 1.7; }
     .contact { display: flex; justify-content: space-between; align-items: center; gap: 30px; padding: 48px 0; }
     .contact h2 { margin: 0 0 8px; font: 34px Georgia, serif; }
+    .contact p { margin: 6px 0; white-space: pre-line; }
     .contact p, footer { color: #707267; font-size: 13px; line-height: 1.7; }
+    .tag:empty, .lead:empty, .contact p:empty, a[href="tel:"]:empty { display: none; }
     footer { padding: 18px 0; border-top: 1px solid #e4e3da; }
+    .footer-addr:empty, footer:has(.footer-addr:empty) .footer-sep { display: none; }
     @media (max-width: 760px) {
       .wrap { width: min(100% - 32px, 560px); }
       nav { gap: 12px; font-size: 11px; }
@@ -50,8 +61,8 @@
   </header>
   <main>
     <section class="hero wrap" id="accueil">
-      <div><div class="tag">{{slogan}}</div><h1>{{hero_titre}}</h1><p class="lead">{{hero_texte}}</p><a class="cta" href="#selection">Découvrir la sélection</a></div>
-      <div class="visual">{{hero_image}}</div>
+      <div><div class="tag">{{slogan}}</div><h1>{{hero_titre}}</h1><p class="lead">{{hero_texte}}</p><a class="cta cta-selection" href="#selection">Découvrir la sélection</a><a class="cta cta-contact" href="#contact">Contacter la boutique</a></div>
+      <div class="visual"><span class="visual-empty">{{nom_entreprise}} · Ajoutez une photo pour présenter votre boutique</span>{{hero_image}}</div>
     </section>
     <section class="collection" id="selection"><div class="wrap">
       <div class="heading"><div><div class="tag">Nos coups de cœur</div><h2>La sélection</h2></div><span class="tag">{{nom_entreprise}}</span></div>
@@ -62,10 +73,10 @@
       </div>
     </div></section>
     <section class="contact wrap" id="contact">
-      <div><div class="tag">Passez nous voir</div><h2>Une belle découverte vous attend.</h2><p>{{adresse}}<br />{{horaires}}</p></div>
+      <div><div class="tag">Passez nous voir</div><h2>Une belle découverte vous attend.</h2><p>{{adresse}}</p><p>{{horaires}}</p></div>
       <a class="cta" href="tel:{{telephone}}">{{telephone}}</a>
     </section>
   </main>
-  <footer><div class="wrap">© {{nom_entreprise}} · {{adresse}}</div></footer>
+  <footer><div class="wrap">© {{nom_entreprise}}<span class="footer-sep"> · </span><span class="footer-addr">{{adresse}}</span></div></footer>
 </body>
 </html>

@@ -1,7 +1,7 @@
-import Link from 'next/link'
 import { Suspense } from 'react'
 import { notFound, redirect } from 'next/navigation'
 import { auth } from '@/auth'
+import { AppHeader } from '@/components/layout/AppHeader'
 import { prisma } from '@/lib/prisma'
 import { getTemplateVariables } from '@/lib/template'
 import { SiteBuilder } from '@/app/site/nouveau/SiteBuilder'
@@ -33,10 +33,16 @@ async function EditSiteContent({
   if (!session?.user?.id) redirect('/login')
 
   const { slug } = await params
-  const site = await prisma.clientSite.findUnique({
-    where: { slug },
-    include: { template: true },
-  })
+  const [account, site] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true, suspended: true },
+    }),
+    prisma.clientSite.findUnique({
+      where: { slug },
+      include: { template: true },
+    }),
+  ])
   if (!site || site.userId !== session.user.id) notFound()
 
   const variables = getTemplateVariables(site.template.variables)
@@ -53,14 +59,14 @@ async function EditSiteContent({
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
-      <header className="border-b border-slate-800">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-          <Link href="/" className="text-xl font-bold tracking-tight">SOCIAL KIT</Link>
-          <Link href="/dashboard" className="text-sm text-slate-400 hover:text-white">
-            ← Mon espace
-          </Link>
-        </div>
-      </header>
+      <AppHeader
+        activeNav="sites"
+        user={{
+          name: session.user.name,
+          email: session.user.email,
+          isAdmin: Boolean(account && !account.suspended && account.role === 'ADMIN'),
+        }}
+      />
       <SiteBuilder
         templates={[{
           id: site.template.id,

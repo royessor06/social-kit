@@ -85,28 +85,11 @@ expirent après 30 minutes et ne peuvent être utilisés qu’une fois.
 
 Après ajout d’un modèle d’affiche, exécutez `npm run db:seed` pour le charger.
 
-## Paiements FedaPay
+## Accès gratuit
 
-Configurez `FEDAPAY_PUBLIC_KEY`, `FEDAPAY_SECRET_KEY` et
-`FEDAPAY_MODE=sandbox` avec les clés de test FedaPay, ainsi que
-`NEXT_PUBLIC_APP_URL` et `POSTER_PRICE=500`. Le prix et la création de la
-transaction sont contrôlés côté serveur. Le frontend ouvre ensuite la popup
-FedaPay avec l’identifiant de transaction généré par le serveur.
-
-Le SDK React FedaPay annonce la compatibilité React 18+, mais sa contrainte de
-dépendance publiée exclut React 19. `.npmrc` conserve les versions React
-existantes tout en permettant son installation.
-
-Dans le tableau de bord FedaPay, configurez le webhook
-`/api/webhooks/fedapay` pour l’événement `transaction.approved`, puis stockez
-son secret unique dans `FEDAPAY_WEBHOOK_SECRET`. Le webhook valide la signature
-HMAC-SHA256 et l’horodatage, puis relit la transaction auprès de l’API FedaPay
-avant de confirmer le paiement. Le retour de popup est également vérifié par
-`/api/poster/confirm-payment`; le navigateur ne peut pas confirmer seul un
-paiement.
-
-L’ancien endpoint `/api/webhooks/cinetpay` répond désormais `410 Gone`; le
-code CinetPay est conservé dans le dépôt mais désactivé.
+La création et le téléchargement d’affiches ainsi que la création et la
+publication de sites vitrines sont entièrement gratuits, sans abonnement ni
+passerelle de paiement.
 
 ## Préparation au déploiement Vercel
 

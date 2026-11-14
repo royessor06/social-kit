@@ -4,6 +4,15 @@ const nextConfig: NextConfig = {
   /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '*.public.blob.vercel-storage.com',
+        pathname: '/**',
+      },
+    ],
+  },
   serverExternalPackages: ["@sparticuz/chromium"],
   outputFileTracingIncludes: {
     "/api/poster/export": ["./node_modules/@sparticuz/chromium/bin/**"],

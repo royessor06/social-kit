@@ -2,7 +2,6 @@ import { Prisma } from '@prisma/client'
 import { NextRequest } from 'next/server'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
-import { getPlan, getUserPlan } from '@/lib/plans'
 import { createSiteSlug, RESERVED_SITE_SLUGS } from '@/lib/site'
 import {
   getTemplateVariables,
@@ -28,8 +27,6 @@ function isPublishRequest(
   const request = value as Record<string, unknown>
   return typeof request.templateId === 'string' && isStringRecord(request.formData)
 }
-
-class SiteQuotaExceededError extends Error {}
 
 export async function POST(request: NextRequest) {
   let body: unknown
@@ -96,61 +93,27 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: 'Compte indisponible' }, { status: 403 })
   }
 
-  const { plan: ownerPlan } = await getUserPlan(session.user.id)
-  const limit = getPlan(ownerPlan).maxSites
-  const existingSites = await prisma.clientSite.count({
-    where: { userId: session.user.id },
-  })
-  if (existingSites >= limit) {
-    return Response.json(
-      {
-        error: `Votre offre ${getPlan(ownerPlan).name} autorise ${limit} site(s). Passez à une offre supérieure pour en publier davantage.`,
-        code: 'SITE_LIMIT_REACHED',
-        plan: ownerPlan,
-        limit,
-      },
-      { status: 403 }
-    )
-  }
-
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const suffix = attempt === 0 ? '' : `-${attempt + 1}`
     const slug = `${baseSlug.slice(0, 60 - suffix.length).replace(/-+$/g, '')}${suffix}`
 
     try {
-      const site = await prisma.$transaction(async (transaction) => {
-        const count = await transaction.clientSite.count({
-          where: { userId: session.user.id },
-        })
-        if (count >= getPlan(ownerPlan).maxSites) {
-          throw new SiteQuotaExceededError()
-        }
-        return transaction.clientSite.create({
-          data: {
-            slug,
-            businessName,
-            templateId: template.id,
-            data: formData,
-            published: true,
-            userId: session.user.id,
-          },
-          select: { slug: true },
-        })
-      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })
+      const site = await prisma.clientSite.create({
+        data: {
+          slug,
+          businessName,
+          templateId: template.id,
+          data: formData,
+          published: true,
+          userId: session.user.id,
+        },
+        select: { slug: true },
+      })
       return Response.json(
         { slug: site.slug, url: `/${site.slug}` },
         { status: 201 }
       )
     } catch (error) {
-      if (error instanceof SiteQuotaExceededError) {
-        return Response.json(
-          {
-            error: `Votre offre ${getPlan(ownerPlan).name} a atteint sa limite de sites.`,
-            code: 'SITE_LIMIT_REACHED',
-          },
-          { status: 403 }
-        )
-      }
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'

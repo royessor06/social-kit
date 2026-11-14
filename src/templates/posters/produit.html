@@ -21,14 +21,8 @@
     }
 
     /* Logo (s'il est uploadé) */
-    .logo-img {
-      position: absolute;
-      top: 60px;
-      right: 60px;
-      max-width: 120px;
-      max-height: 120px;
-      object-fit: contain;
-      z-index: 10;
+    .logo-container:empty {
+      display: none;
     }
 
     /* En-tête */
@@ -58,10 +52,12 @@
       flex-shrink: 0;
     }
     
-    .logo-container img {
+    .logo-container img,
+    .logo-container .logo-img {
       width: 100%;
       height: 100%;
       object-fit: cover; /* L'image remplit sans être déformée */
+      display: block;
     }
 
     .brand { 
@@ -149,9 +145,7 @@
 
     <div class="header">
       <div class="brand-info">
-        <div class="logo-container">
-          {{logo}}
-        </div>
+        <div class="logo-container">{{logo}}</div>
         <div class="brand">{{nom_entreprise}}</div>
       </div>
       

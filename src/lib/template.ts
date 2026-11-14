@@ -1,16 +1,12 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import {
+  getTemplateVariables,
+  type TemplateVariableMeta,
+} from './template-variables'
 
-type VariableType = 'text' | 'textarea' | 'color' | 'image'
+export { getTemplateVariables, type TemplateVariableMeta }
 
-export type TemplateVariableMeta = {
-  key: string
-  label: string
-  type: VariableType
-  default: string
-}
-
-const VARIABLE_TYPES = ['text', 'textarea', 'color', 'image'] as const
 const UPLOAD_PATH = /^\/uploads\/([a-zA-Z0-9_-]+\.(?:png|jpe?g|webp))$/
 const BLOB_UPLOAD_PATH = /^\/uploads\/([a-zA-Z0-9_-]+\.(?:png|jpe?g|webp))$/
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
@@ -23,36 +19,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isStringRecord(value: unknown): value is Record<string, string> {
   return isRecord(value) && Object.values(value).every((item) => typeof item === 'string')
-}
-
-function isVariableType(value: unknown): value is VariableType {
-  return typeof value === 'string' && VARIABLE_TYPES.some((type) => type === value)
-}
-
-export function getTemplateVariables(value: unknown): TemplateVariableMeta[] {
-  if (!Array.isArray(value)) {
-    throw new Error('Métadonnées de variables du template invalides')
-  }
-
-  return value.map((item) => {
-    if (
-      !isRecord(item) ||
-      typeof item.key !== 'string' ||
-      !/^\w+$/.test(item.key) ||
-      typeof item.label !== 'string' ||
-      !isVariableType(item.type) ||
-      typeof item.default !== 'string'
-    ) {
-      throw new Error('Métadonnées de variables du template invalides')
-    }
-
-    return {
-      key: item.key,
-      label: item.label,
-      type: item.type,
-      default: item.default,
-    }
-  })
 }
 
 function escapeHtml(value: string) {

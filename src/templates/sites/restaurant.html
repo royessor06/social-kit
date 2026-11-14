@@ -20,14 +20,19 @@
     h1 { max-width: 620px; margin: 18px 0; font-size: clamp(44px, 6vw, 76px); line-height: 1.02; letter-spacing: -.04em; }
     .lead { max-width: 530px; color: #70685e; font: 18px/1.8 Arial, sans-serif; }
     .button { display: inline-flex; margin-top: 20px; padding: 15px 22px; color: white; background: var(--accent); border-radius: 3px; font: 700 13px Arial, sans-serif; }
-    .photo { min-height: 430px; display: grid; place-items: center; overflow: hidden; background: #e6ddd0; }
-    .photo .logo-img { width: 100%; height: 100%; min-height: 430px; object-fit: cover; }
-    .photo-empty { color: #897b69; font: 14px Arial, sans-serif; }
+    .photo { position: relative; min-height: 430px; display: grid; place-items: center; overflow: hidden; background: #e6ddd0; }
+    .photo .logo-img { position: relative; z-index: 1; width: 100%; height: 100%; min-height: 430px; object-fit: cover; display: block; }
+    .photo-empty { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: #897b69; font: 14px/1.6 Arial, sans-serif; }
+    .photo:has(.logo-img) .photo-empty { display: none; }
     .section { padding: 76px 0; }
     .section-heading { max-width: 600px; margin: 0 auto 42px; text-align: center; }
     .section-heading h2 { margin: 10px 0; font-size: clamp(32px, 4vw, 48px); }
-    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 22px; }
     .card { padding: 30px; border: 1px solid #e8e0d4; background: #fffdfa; }
+    .card:has(h3:empty):has(p:empty) { display: none; }
+    .card h3:empty, .card p:empty { display: none; }
+    body:not(:has(.cards h3:not(:empty), .cards p:not(:empty))) #carte,
+    body:not(:has(.cards h3:not(:empty), .cards p:not(:empty))) nav a[href="#carte"] { display: none; }
     .number { color: var(--accent); font: 700 12px Arial, sans-serif; letter-spacing: .15em; }
     .card h3 { margin: 18px 0 10px; font-size: 23px; }
     .card p { margin: 0; color: #71695f; font: 15px/1.7 Arial, sans-serif; }
@@ -35,7 +40,9 @@
     .contact-inner { display: flex; justify-content: space-between; align-items: center; gap: 30px; padding: 54px 0; }
     .contact h2 { margin: 0 0 10px; font-size: 36px; }
     .contact p { margin: 6px 0; color: #d7d0c7; font: 15px/1.6 Arial, sans-serif; white-space: pre-line; }
+    .eyebrow:empty, .lead:empty, .contact p:empty, a[href="tel:"]:empty { display: none; }
     footer { padding: 20px 0; color: #8d857b; font: 12px Arial, sans-serif; }
+    .footer-addr:empty, footer:has(.footer-addr:empty) .footer-sep { display: none; }
     @media (max-width: 760px) {
       .wrap { width: min(100% - 32px, 560px); }
       nav { gap: 14px; font-size: 12px; }
@@ -59,7 +66,7 @@
         <p class="lead">{{hero_texte}}</p>
         <a class="button" href="#contact">Réserver une table</a>
       </div>
-      <div class="photo">{{hero_image}}</div>
+      <div class="photo"><span class="photo-empty">{{nom_entreprise}} · Ajoutez une photo pour illustrer votre table</span>{{hero_image}}</div>
     </section>
     <section class="section wrap" id="carte">
       <div class="section-heading"><div class="eyebrow">Fait avec passion</div><h2>À découvrir chez nous</h2></div>
@@ -74,6 +81,6 @@
       <a class="button" href="tel:{{telephone}}">{{telephone}}</a>
     </div></section>
   </main>
-  <footer class="wrap">© {{nom_entreprise}} · {{adresse}}</footer>
+  <footer class="wrap">© {{nom_entreprise}}<span class="footer-sep"> · </span><span class="footer-addr">{{adresse}}</span></footer>
 </body>
 </html>
